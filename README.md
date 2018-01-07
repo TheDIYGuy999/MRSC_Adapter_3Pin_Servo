@@ -26,6 +26,6 @@ New in V 0.1
 See pictures
 
 First test
-![](https://github.com/TheDIYGuy999/MRSC_Adapter_WLtoys_5Pin_Servo/blob/master/Test_rig.jpg)
+![](https://github.com/TheDIYGuy999/MRSC_Adapter_3Pin_Servo/blob/master/Test_rig.jpg)
 
 (c) 2018 TheDIYGuy999
