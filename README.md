@@ -1,4 +1,4 @@
-# This the Arduino MRSC (Micro Rc Stability Control) for standard 3 pin RC servos!
+# This is the Arduino MRSC (Micro Rc Stability Control) for standard 3 pin RC servos!
 ## Features:
 - For RC cars with standard 3pin servo, ESC and receiver
 - Provides about the same functionality as the Traxxas TSM stability management system
