@@ -5,7 +5,7 @@
 - The car tries to follow the direction, which is requested from the steering wheel. Deviations are compensated with countersteering
 - I also have an Adruino RC system with fully integrated MRSC: https://github.com/TheDIYGuy999/Micro_RC_Receiver
 - Programmable with Arduino IDE
-- Input for standard 1000 - 2000us servo pulses
+- 2 inputs for standard 1000 - 2000us servo pulses
 - The throttle signal is passed thru and used as a speed reference for the MRSC calculations
 - The steering signal is read and used as the steering angle reference
 - A new steering signal is then computed in accordance with the reading from the gyro sensor and sent to the servo
@@ -27,5 +27,9 @@ See pictures
 
 First test
 ![](https://github.com/TheDIYGuy999/MRSC_Adapter_3Pin_Servo/blob/master/Test_rig.jpg)
+
+Vehicle MRSC unit
+![](https://github.com/TheDIYGuy999/MRSC_Adapter_3Pin_Servo/blob/master/Top.jpg)
+![](https://github.com/TheDIYGuy999/MRSC_Adapter_3Pin_Servo/blob/master/Bottom.jpg)
 
 (c) 2018 TheDIYGuy999
