@@ -4,6 +4,7 @@
 - Provides about the same functionality as the Traxxas TSM stability management system
 - The car tries to follow the direction, which is requested from the steering wheel. Deviations are compensated with countersteering
 - I also have an Adruino RC system with fully integrated MRSC: https://github.com/TheDIYGuy999/Micro_RC_Receiver
+- Version for WLtoys 5 pin servos: https://github.com/TheDIYGuy999/MRSC_Adapter_WLtoys_5Pin_Servo
 - Programmable with Arduino IDE
 - 2 inputs for standard 1000 - 2000us servo pulses
 - The throttle signal is passed thru and used as a speed reference for the MRSC calculations
@@ -23,7 +24,8 @@ New in V 0.1
 
 ## Usage
 
-See pictures
+See videos and pictures
+- Build video: https://www.youtube.com/watch?v=s2kW7vN7KI8
 
 First test
 ![](https://github.com/TheDIYGuy999/MRSC_Adapter_3Pin_Servo/blob/master/Test_rig.jpg)
