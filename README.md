@@ -7,7 +7,7 @@
 - Version for WLtoys 5 pin servos: https://github.com/TheDIYGuy999/MRSC_Adapter_WLtoys_5Pin_Servo
 - Programmable with Arduino IDE
 - 2 inputs for standard 1000 - 2000us servo pulses
-- The throttle signal is passed thru and used as a speed reference for the MRSC calculations
+- The throttle signal is passed thru and used as a speed reference for the MRSC calculations (not used, see below)
 - The steering signal is read and used as the steering angle reference
 - A new steering signal is then computed in accordance with the reading from the gyro sensor and sent to the servo
 - Uses an 8MHz, 3.3V Pro Mini
@@ -21,6 +21,12 @@ New in V 0.1
 - Initial commit
 - Works fine on the bench
 - Not yet tested in a car
+
+New in V 0.2
+- Throttle input not used, because it's impossible (because of the vehicle inertia) to use it as a speed reference in big vehicles
+- Auto steering range calibration. You need to move the steering wheel within its entire range after powering up the vehicle!
+- Variable MRSC gain: more around the center position, less towards the steering endpoints: allows to have a good stability and still be able to take sharp corners!
+- Tested in a JLB Racing Cheetah with Arduino "Micro RC" remote
 
 ## Usage
 

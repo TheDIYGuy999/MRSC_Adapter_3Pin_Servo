@@ -1,11 +1,11 @@
-/* Standalone MRSC "Micro Rc Stability Control" converter for steering 3 pin servo
+/* Standalone MRSC "Micro Rc Stability Control" converter for 3 pin RC steering servo
     MPU: Atmega 328P 3.3V, 8MHz
     Board: Pro Mini
     MPU-6050 board: GY-521
 
    Pins:
    - Steering input 4
-   - Throttle input 5
+   - Throttle input 5 (wired in parallel with your ESC)
    - MRSC Gain potentiometer input A1
    - MRSC direction inversion switch A2
    - Steering output A0
@@ -13,7 +13,7 @@
    - MPU-6050 SCL A5
 */
 
-const float codeVersion = 0.1; // Software revision
+const float codeVersion = 0.2; // Software revision
 
 //
 // =======================================================================================================
@@ -39,15 +39,16 @@ volatile uint32_t uSec[2]; // the latest measured pulse width for each channel
 // Create Servo objects
 Servo servoSteering;
 
-// Servo limits
-byte limSteeringL = 45, limSteeringR = 135; // usually 45 - 135° (90° is the servo center position)
+// Servo limits (initial value = center position = 90°)
+// Limits are adjusted during the first steering operation!
+// Always move the steering wheel inside its entire range after switching on the car
+byte limSteeringL = 90, limSteeringR = 90; // usually 45 - 135° (90° is the servo center position)
 
 // MRSC gain
-byte mrscGain = 30; // This MRSC gain applies, if you don't have an adjustment pot and don't call readInputs()
+byte mrscGain = 80; // This MRSC gain applies, if you don't have an adjustment pot and don't call readInputs()
 
 // Switch states
-boolean mpuInversed = true;
-boolean setupMode = false;
+boolean mpuInversed = false;
 
 // Pin definition (don't change servo imputs, interrupt routine is hardcoded)
 #define INPUT_STEERING 4
@@ -55,10 +56,8 @@ boolean setupMode = false;
 
 #define OUTPUT_STEERING A0
 
-
 #define GAIN_POT A1
 #define INVERSE_MPU_DIRECTION A2
-#define SETUP_JUMPER A3
 
 //
 // =======================================================================================================
@@ -95,7 +94,6 @@ void setup() {
 
   // Configure inputs
   pinMode(INVERSE_MPU_DIRECTION, INPUT_PULLUP);
-  pinMode(SETUP_JUMPER, INPUT_PULLUP);
   pinMode(GAIN_POT, INPUT);
 
   // Activate servo signal input pullup resistors
@@ -120,6 +118,18 @@ void setup() {
 
 //
 // =======================================================================================================
+// DETECT STEERING RANGE
+// =======================================================================================================
+//
+
+void detectSteeringRange() {
+  int servoAngle = map(uSec[0], 1000, 2000, 45, 135); // The range usually is 45 to 135° (+/- 45°)
+if (servoAngle > 20 && servoAngle < limSteeringL) limSteeringL = servoAngle;
+if (servoAngle < 180 && servoAngle > limSteeringR) limSteeringR = servoAngle;
+}
+
+//
+// =======================================================================================================
 // READ INPUTS
 // =======================================================================================================
 //
@@ -127,7 +137,6 @@ void setup() {
 void readInputs() {
   mrscGain = map(analogRead(GAIN_POT), 0, 255, 0, 100);
   mpuInversed = !digitalRead(INVERSE_MPU_DIRECTION);
-  setupMode = digitalRead(SETUP_JUMPER);
 }
 
 //
@@ -157,9 +166,15 @@ void mrsc() {
 
   // Compute steering compensation overlay
   int turnRateSetPoint = map(uSec[0], 1000, 2000, -50, 50);  // turnRateSetPoint = steering angle (1000 to 2000us) = -50 to 50
-  int turnRateMeasured = yaw_rate * abs(map(uSec[1], 1000, 2000, -50, 50)); // degrees/s * speed
-  if (mpuInversed) { steeringAngle = turnRateSetPoint + (turnRateMeasured * mrscGain / 100); } // Compensation depending on the pot value
-  else { steeringAngle = turnRateSetPoint - (turnRateMeasured * mrscGain / 100); }
+  int steering = abs(turnRateSetPoint);
+  int gain = map(steering, 0, 50, mrscGain, (mrscGain / 10)); // more MRSC gain around center position!
+  int turnRateMeasured = yaw_rate * 50;//abs(map(uSec[1], 1000, 2000, -50, 50)); // degrees/s * speed (not speed dependent for big cars)
+  if (mpuInversed) {
+    steeringAngle = turnRateSetPoint + (turnRateMeasured * gain / 100);  // Compensation depending on the pot value
+  }
+  else {
+    steeringAngle = turnRateSetPoint - (turnRateMeasured * gain / 100);
+  }
 
   steeringAngle = constrain (steeringAngle, -50, 50); // range = -50 to 50
 
@@ -176,5 +191,6 @@ void mrsc() {
 void loop() {
   //readInputs(); // Read pots and switches
   checkValidity(); // Signal valid?
+  detectSteeringRange(); // Detect the steering input signal range
   mrsc(); // Do stability control calculations
 }
