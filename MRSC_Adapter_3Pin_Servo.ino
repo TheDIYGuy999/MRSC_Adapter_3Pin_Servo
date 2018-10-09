@@ -5,15 +5,15 @@
 
    Pins:
    - Steering input 4
-   - Throttle input 5 (wired in parallel with your ESC)
-   - MRSC Gain potentiometer input A1
+   - Remote gain input 5 (standard servo pulses from spare channel)
+   - MRSC Gain potentiometer input A1 (if no remote gain is wired)
    - MRSC direction inversion switch A2
    - Steering output A0
    - MPU-6050 SDA A4
    - MPU-6050 SCL A5
 */
 
-const float codeVersion = 0.2; // Software revision
+const float codeVersion = 0.3; // Software revision
 
 //
 // =======================================================================================================
@@ -39,20 +39,22 @@ volatile uint32_t uSec[2]; // the latest measured pulse width for each channel
 // Create Servo objects
 Servo servoSteering;
 
-// Servo limits (initial value = center position = 90°)
+// Servo limits (initial value = center position = 90° / 1500uSec)
 // Limits are adjusted during the first steering operation!
 // Always move the steering wheel inside its entire range after switching on the car
 byte limSteeringL = 90, limSteeringR = 90; // usually 45 - 135° (90° is the servo center position)
+int limuSecL = 1500, limuSecR = 1500; // usually 1000 - 2000 uSec (1500 uSec is in the servo center position)
 
 // MRSC gain
 byte mrscGain = 80; // This MRSC gain applies, if you don't have an adjustment pot and don't call readInputs()
+float headingMultiplier = 2.0; // adjust until front wheels stay in parallel with the ground, if the car is swiveled around
 
 // Switch states
 boolean mpuInversed = false;
 
-// Pin definition (don't change servo imputs, interrupt routine is hardcoded)
+// Pin definition (don't change servo input pins, interrupt routine is hardcoded)
 #define INPUT_STEERING 4
-#define INPUT_THROTTLE 5
+#define INPUT_GAIN 5
 
 #define OUTPUT_STEERING A0
 
@@ -98,7 +100,7 @@ void setup() {
 
   // Activate servo signal input pullup resistors
   pinMode(INPUT_STEERING, INPUT_PULLUP);
-  pinMode(INPUT_THROTTLE, INPUT_PULLUP);
+  pinMode(INPUT_GAIN, INPUT_PULLUP);
 
   // Interrupt settings. See: http://www.atmel.com/Images/Atmel-42735-8-bit-AVR-Microcontroller-ATmega328-328P_Datasheet.pdf
   PCMSK2 |= B00110000; // PinChangeMaskRegister: set the mask to allow pins 4-5 to generate interrupts (see page 94)
@@ -107,10 +109,6 @@ void setup() {
   // Servo pins
   servoSteering.attach(OUTPUT_STEERING);
   servoSteering.write((limSteeringL + limSteeringR) / 2); // Servo to center position
-
-  // Initialize servo pulses to center position
-  uSec[0] = 1500; // Steering
-  uSec[1] = 1500; // Throttle
 
   // MPU 6050 accelerometer / gyro setup
   setupMpu6050();
@@ -123,9 +121,15 @@ void setup() {
 //
 
 void detectSteeringRange() {
+  // input signal calibration (for center point only)
+  int steeringuSec = uSec[0];
+  if (steeringuSec > 500 && steeringuSec < limuSecL) limuSecL = steeringuSec; // around 1000uS
+  if (steeringuSec < 2500 && steeringuSec > limuSecR) limuSecR = steeringuSec; // around 2000uS
+
+  // output signal calibration
   int servoAngle = map(uSec[0], 1000, 2000, 45, 135); // The range usually is 45 to 135° (+/- 45°)
-if (servoAngle > 20 && servoAngle < limSteeringL) limSteeringL = servoAngle;
-if (servoAngle < 180 && servoAngle > limSteeringR) limSteeringR = servoAngle;
+  if (servoAngle > 20 && servoAngle < limSteeringL) limSteeringL = servoAngle;
+  if (servoAngle < 160 && servoAngle > limSteeringR) limSteeringR = servoAngle;
 }
 
 //
@@ -160,21 +164,29 @@ void checkValidity() {
 void mrsc() {
 
   int steeringAngle;
+  long gyroFeedback;
+
+  // Read remote gain signal (standard servo pulses)
+  mrscGain = map(uSec[1], 1000, 2000, 0, 100);
 
   // Read sensor data
   readMpu6050Data();
 
   // Compute steering compensation overlay
-  int turnRateSetPoint = map(uSec[0], 1000, 2000, -50, 50);  // turnRateSetPoint = steering angle (1000 to 2000us) = -50 to 50
-  int steering = abs(turnRateSetPoint);
-  int gain = map(steering, 0, 50, mrscGain, (mrscGain / 10)); // more MRSC gain around center position!
-  int turnRateMeasured = yaw_rate * 50;//abs(map(uSec[1], 1000, 2000, -50, 50)); // degrees/s * speed (not speed dependent for big cars)
-  if (mpuInversed) {
-    steeringAngle = turnRateSetPoint + (turnRateMeasured * gain / 100);  // Compensation depending on the pot value
+  int turnRateSetPoint = map(uSec[0], limuSecL, limuSecR, -50, 50);  // turnRateSetPoint = steering angle (1000 to 2000us) = -50 to 50
+  int steering = abs(turnRateSetPoint); // this value is required to compute the gain later on and is always positive
+  int gain = map(steering, 0, 50, mrscGain, (mrscGain / 5)); // MRSC gain around center position is 5 times more!
+
+  if (steering < 5 && mrscGain > 85) { // Straight run @ high gain, "heading hold" mode -------------
+    gyroFeedback = yaw_angle * headingMultiplier; // degrees
   }
-  else {
-    steeringAngle = turnRateSetPoint - (turnRateMeasured * gain / 100);
+  else { // cornering or low gain, correction depending on yaw rate in °/s --------------------------
+    gyroFeedback = yaw_rate * 50; // degrees/s * speed (always 50%)
+    yaw_angle = 0; // reset yaw angle (heading direction)
   }
+
+  if (mpuInversed) steeringAngle = turnRateSetPoint + (gyroFeedback * gain / 100);  // Compensation depending on the pot value
+  else steeringAngle = turnRateSetPoint - (gyroFeedback * gain / 100);
 
   steeringAngle = constrain (steeringAngle, -50, 50); // range = -50 to 50
 
